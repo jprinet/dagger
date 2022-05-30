@@ -16,6 +16,7 @@
 
 package dagger.hilt.android.processor.internal.androidentrypoint;
 
+import static dagger.hilt.processor.internal.HiltCompilerOptions.getProjectType;
 import static dagger.hilt.processor.internal.HiltCompilerOptions.useAggregatingRootProcessor;
 import static net.ltgt.gradle.incap.IncrementalAnnotationProcessorType.ISOLATING;
 
@@ -56,6 +57,13 @@ public final class AndroidEntryPointProcessor extends BaseProcessor {
     new InjectorEntryPointGenerator(getProcessingEnv(), metadata).generate();
     switch (metadata.androidType()) {
       case APPLICATION:
+        String projectType = getProjectType(getProcessingEnv());
+        if (projectType != null && !projectType.equals("App")) {
+          throw new IllegalStateException(
+              "Application class annotated with @HiltAndroidApp has to be defind in "
+                  + "an android application project");
+        }
+
         // The generated application references the generated component so they must be generated
         // in the same build unit. Thus, we only generate the application here if we're using the
         // aggregating root processor. If we're using the Hilt Gradle plugin's aggregating task, we

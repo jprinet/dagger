@@ -86,6 +86,10 @@ public final class HiltCompilerOptions {
     return BooleanOption.USE_AGGREGATING_ROOT_PROCESSOR.get(env);
   }
 
+  public static String getProjectType(ProcessingEnvironment env) {
+    return env.getOptions().get("android.internal.projectType");
+  }
+
   /** Processor options which can have true or false values. */
   private enum BooleanOption {
     /** Do not use! This is for internal use only. */

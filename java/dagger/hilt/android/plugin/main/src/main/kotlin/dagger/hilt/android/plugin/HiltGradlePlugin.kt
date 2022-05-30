@@ -114,8 +114,7 @@ class HiltGradlePlugin @Inject constructor(
   }
 
   private fun configureCompileClasspath(project: Project, hiltExtension: HiltExtension) {
-    val androidExtension = project.extensions.findByType(BaseExtension::class.java)
-      ?: error("Android BaseExtension not found.")
+    val androidExtension = project.baseExtension ?: error("Android BaseExtension not found.")
     androidExtension.forEachRootVariant { variant ->
       configureVariantCompileClasspath(project, hiltExtension, androidExtension, variant)
     }
@@ -266,8 +265,7 @@ class HiltGradlePlugin @Inject constructor(
   }
 
   private fun configureBytecodeTransform(project: Project, hiltExtension: HiltExtension) {
-    val androidExtension = project.extensions.findByType(BaseExtension::class.java)
-      ?: error("Android BaseExtension not found.")
+    val androidExtension = project.baseExtension ?: error("Android BaseExtension not found.")
     androidExtension::class.java.getMethod(
       "registerTransform",
       Class.forName("com.android.build.api.transform.Transform"),
@@ -275,8 +273,7 @@ class HiltGradlePlugin @Inject constructor(
     ).invoke(androidExtension, AndroidEntryPointTransform(), emptyArray<Any>())
 
     // Create and configure a task for applying the transform for host-side unit tests. b/37076369
-    val testedExtensions = project.extensions.findByType(TestedExtension::class.java)
-    testedExtensions?.unitTestVariants?.all { unitTestVariant ->
+    project.testedExtension?.unitTestVariants?.all { unitTestVariant ->
       HiltTransformTestClassesTask.create(
         project = project,
         unitTestVariant = unitTestVariant,
@@ -286,8 +283,7 @@ class HiltGradlePlugin @Inject constructor(
   }
 
   private fun configureAggregatingTask(project: Project, hiltExtension: HiltExtension) {
-    val androidExtension = project.extensions.findByType(BaseExtension::class.java)
-      ?: error("Android BaseExtension not found.")
+    val androidExtension = project.baseExtension ?: error("Android BaseExtension not found.")
     androidExtension.forEachRootVariant { variant ->
       configureVariantAggregatingTask(project, hiltExtension, androidExtension, variant)
     }
@@ -430,13 +426,21 @@ class HiltGradlePlugin @Inject constructor(
     project.files(File(project.getSdkPath(), "platforms/$compileSdkVersion/android.jar"))
 
   private fun configureProcessorFlags(project: Project, hiltExtension: HiltExtension) {
-    val androidExtension = project.extensions.findByType(BaseExtension::class.java)
-      ?: error("Android BaseExtension not found.")
+    val androidExtension = project.baseExtension ?: error("Android BaseExtension not found.")
     androidExtension.defaultConfig.javaCompileOptions.annotationProcessorOptions.apply {
       // Pass annotation processor flag to enable Dagger's fast-init, the best mode for Hilt.
       argument("dagger.fastInit", "enabled")
       // Pass annotation processor flag to disable @AndroidEntryPoint superclass validation.
       argument("dagger.hilt.android.internal.disableAndroidSuperclassValidation", "true")
+
+      val projectType = when (androidExtension) {
+        is AppExtension -> ProjectType.App
+        is LibraryExtension -> ProjectType.Library
+        is TestExtension -> ProjectType.Test
+        else -> error("Hilt plugin does not know how to configure '$this'")
+      }
+      argument("android.internal.projectType", projectType.toString())
+
       // Pass certain annotation processor flags via a CommandLineArgumentProvider so that plugin
       // options defined in the extension are populated from the user's build file. Checking the
       // option too early would make it seem like it is never set.
@@ -480,6 +484,14 @@ class HiltGradlePlugin @Inject constructor(
       error(missingDepError("$LIBRARY_GROUP:hilt-compiler"))
     }
   }
+
+  private val Project.baseExtension: BaseExtension?
+    get() = extensions.findByType(BaseExtension::class.java)
+
+  private val Project.testedExtension: TestedExtension?
+    get() = extensions.findByType(TestedExtension::class.java)
+
+  private enum class ProjectType { App, Library, Test }
 
   companion object {
     val ARTIFACT_TYPE_ATTRIBUTE = Attribute.of("artifactType", String::class.java)
