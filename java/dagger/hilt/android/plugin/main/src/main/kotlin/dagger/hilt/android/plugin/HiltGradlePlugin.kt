@@ -340,6 +340,8 @@ class HiltGradlePlugin @Inject constructor(
         }.files
       }.let {
         project.files(*it.toTypedArray())
+      }.sortedBy {
+        it.name
       }
 
     val aggregatingTask = project.tasks.register(
