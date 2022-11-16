@@ -61,6 +61,9 @@ class HiltGradlePlugin @Inject constructor(
   val providers: ProviderFactory
 ) : Plugin<Project> {
   override fun apply(project: Project) {
+
+    println("BLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLA")
+
     var configured = false
     project.plugins.withType(AndroidBasePlugin::class.java) {
       configured = true
@@ -343,6 +346,15 @@ class HiltGradlePlugin @Inject constructor(
       "hiltAggregateDeps${variant.name.capitalize()}",
       AggregateDepsTask::class.java
     ) {
+
+      println("START")
+      if("0" == System.getenv("HILT_STRATEGY")){
+        println("0")
+      } else {
+        println("1")
+      }
+      getInputClasspath(AGGREGATED_HILT_ARTIFACT_TYPE_VALUE).forEach{println(it.name.toString())}
+      println("OVER")
       it.compileClasspath.setFrom(getInputClasspath(AGGREGATED_HILT_ARTIFACT_TYPE_VALUE))
       it.outputDir.set(
         project.file(project.buildDir.resolve("generated/hilt/component_trees/${variant.name}/"))
@@ -446,9 +458,9 @@ class HiltGradlePlugin @Inject constructor(
       argument("dagger.hilt.android.internal.disableAndroidSuperclassValidation", "true")
 
       val projectType = when (androidExtension) {
-        is AppExtension -> GradleProjectType.APP
-        is LibraryExtension -> GradleProjectType.LIBRARY
-        is TestExtension -> GradleProjectType.TEST
+        is AppExtension -> dagger.hilt.processor.internal.optionvalues.GradleProjectType.APP
+        is LibraryExtension -> dagger.hilt.processor.internal.optionvalues.GradleProjectType.LIBRARY
+        is TestExtension -> dagger.hilt.processor.internal.optionvalues.GradleProjectType.TEST
         else -> error("Hilt plugin does not know how to configure '$this'")
       }
       argument("dagger.hilt.android.internal.projectType", projectType.toString())
