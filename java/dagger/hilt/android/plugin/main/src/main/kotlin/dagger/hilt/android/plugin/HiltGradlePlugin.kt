@@ -61,9 +61,6 @@ class HiltGradlePlugin @Inject constructor(
   val providers: ProviderFactory
 ) : Plugin<Project> {
   override fun apply(project: Project) {
-
-    println("BLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLABLA")
-
     var configured = false
     project.plugins.withType(AndroidBasePlugin::class.java) {
       configured = true
@@ -327,34 +324,55 @@ class HiltGradlePlugin @Inject constructor(
     )
 
     fun getInputClasspath(artifactAttributeValue: String) =
-      mutableListOf<Configuration>().apply {
-        @Suppress("DEPRECATION") // Older variant API is deprecated
-        if (variant is com.android.build.gradle.api.TestVariant) {
-          add(variant.testedVariant.runtimeConfiguration)
+      if("0" == System.getenv("HILT_STRATEGY")) {
+        println("HILT_STRATEGY=REGULAR")
+        mutableListOf<Configuration>().apply {
+          @Suppress("DEPRECATION") // Older variant API is deprecated
+          if (variant is com.android.build.gradle.api.TestVariant) {
+            add(variant.testedVariant.runtimeConfiguration)
+          }
+          add(variant.runtimeConfiguration)
+          add(hiltCompileConfiguration)
+        }.map { configuration ->
+          configuration.incoming.artifactView { view ->
+            view.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, artifactAttributeValue)
+          }.files.sortedBy {
+            it.absolutePath
+          }
+        }.let {
+          project.files(*it.toTypedArray())
         }
-        add(variant.runtimeConfiguration)
-        add(hiltCompileConfiguration)
-      }.map { configuration ->
-        configuration.incoming.artifactView { view ->
-          view.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, artifactAttributeValue)
-        }.files
-      }.let {
-        project.files(*it.toTypedArray())
+      } else {
+        println("HILT_STRATEGY=DESCENDING")
+        mutableListOf<Configuration>().apply {
+          @Suppress("DEPRECATION") // Older variant API is deprecated
+          if (variant is com.android.build.gradle.api.TestVariant) {
+            add(variant.testedVariant.runtimeConfiguration)
+          }
+          add(variant.runtimeConfiguration)
+          add(hiltCompileConfiguration)
+        }.map { configuration ->
+          configuration.incoming.artifactView { view ->
+            view.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, artifactAttributeValue)
+          }.files.sortedByDescending {
+            it.absolutePath
+          }
+        }.let {
+          project.files(*it.toTypedArray())
+        }
       }
 
     val aggregatingTask = project.tasks.register(
       "hiltAggregateDeps${variant.name.capitalize()}",
       AggregateDepsTask::class.java
     ) {
-
-      println("START")
-      if("0" == System.getenv("HILT_STRATEGY")){
-        println("0")
-      } else {
-        println("1")
-      }
-      getInputClasspath(AGGREGATED_HILT_ARTIFACT_TYPE_VALUE).forEach{println(it.name.toString())}
-      println("OVER")
+//      println("START")
+//      if("0" == System.getenv("HILT_STRATEGY")){
+//        getInputClasspath(AGGREGATED_HILT_ARTIFACT_TYPE_VALUE).forEach{println(it.name.toString())}
+//      } else {
+//        getInputClasspathDescending(AGGREGATED_HILT_ARTIFACT_TYPE_VALUE).forEach{println(it.name.toString())}
+//      }
+//      println("OVER")
       it.compileClasspath.setFrom(getInputClasspath(AGGREGATED_HILT_ARTIFACT_TYPE_VALUE))
       it.outputDir.set(
         project.file(project.buildDir.resolve("generated/hilt/component_trees/${variant.name}/"))

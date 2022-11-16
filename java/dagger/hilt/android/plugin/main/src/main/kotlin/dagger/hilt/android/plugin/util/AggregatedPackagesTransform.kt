@@ -43,13 +43,26 @@ abstract class AggregatedPackagesTransform : TransformAction<TransformParameters
   abstract val inputArtifactProvider: Provider<FileSystemLocation>
 
   override fun transform(outputs: TransformOutputs) {
-    val input = inputArtifactProvider.get().asFile
-    when {
-      input.isFile -> transformFile(outputs, input)
-      input.isDirectory -> input.walkTopDown().filter { it.isFile }.forEach {
-        transformFile(outputs, it)
+    if("0" == System.getenv("TRANSFORM_STRATEGY")) {
+      println("WALK TOP DOWN")
+      val input = inputArtifactProvider.get().asFile
+      when {
+        input.isFile -> transformFile(outputs, input)
+        input.isDirectory -> input.walkTopDown().filter { it.isFile }.forEach {
+          transformFile(outputs, it)
+        }
+        else -> error("File/directory does not exist: ${input.absolutePath}")
       }
-      else -> error("File/directory does not exist: ${input.absolutePath}")
+    } else {
+      println("WALK BOTTOM UP")
+      val input = inputArtifactProvider.get().asFile
+      when {
+        input.isFile -> transformFile(outputs, input)
+        input.isDirectory -> input.walkBottomUp().filter { it.isFile }.forEach {
+          transformFile(outputs, it)
+        }
+        else -> error("File/directory does not exist: ${input.absolutePath}")
+      }
     }
   }
 
